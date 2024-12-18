@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secret Santa Generator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/file-saver/dist/FileSaver.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f0f0;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #ff4444;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary {
+            background: #ff4444;
+            color: white;
+        }
+
+        .btn-excel {
+            background: #217346;
+            color: white;
+        }
+
+        .pair {
+            background: linear-gradient(145deg, #ffffff, #f8f8f8);
+            padding: 25px;
+            margin: 20px 0;
+            border-radius: 15px;
+            position: relative;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            transform-style: preserve-3d;
+            animation: pairSlideIn 0.6s ease-out forwards;
+        }
+
+        @keyframes pairSlideIn {
+            0% {
+                opacity: 0;
+                transform: translateX(-100px) rotate(-5deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0) rotate(0);
+            }
+        }
+
+        .pair::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, transparent, rgba(255, 68, 68, 0.1));
+            pointer-events: none;
+        }
+
+        .pair-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .giver-section, .receiver-section {
+            flex: 1;
+            text-align: center;
+            padding: 15px;
+            border-radius: 10px;
+            position: relative;
+        }
+
+        .giver-section {
+            background: rgba(255, 68, 68, 0.1);
+            border-left: 4px solid #ff4444;
+        }
+
+        .receiver-section {
+            background: rgba(44, 62, 80, 0.1);
+            border-right: 4px solid #2c3e50;
+        }
+
+        .arrow-section {
+            display: flex;
+            align-items: center;
+            font-size: 24px;
+            color: #ff4444;
+            animation: arrowPulse 1.5s infinite;
+        }
+
+        @keyframes arrowPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .name-label {
+            font-size: 0.9em;
+            text-transform: uppercase;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .name {
+            font-size: 1.4em;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+
+        .giver-section .name {
+            color: #ff4444;
+        }
+
+        .receiver-section .name {
+            color: #2c3e50;
+        }
+
+        .gift-icon {
+            font-size: 2em;
+            margin: 10px 0;
+            animation: giftBounce 2s infinite;
+        }
+
+        @keyframes giftBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .sparkle-effect {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #ff4444;
+            border-radius: 50%;
+            animation: sparkle 1.5s linear infinite;
+        }
+
+        @keyframes sparkle {
+            0% { transform: scale(0) rotate(0deg); opacity: 0; }
+            50% { transform: scale(1) rotate(180deg); opacity: 1; }
+            100% { transform: scale(0) rotate(360deg); opacity: 0; }
+        }
+
+        .results-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            animation: confettiFall linear forwards;
+        }
+
+        @keyframes confettiFall {
+            from { transform: translateY(-10px) rotate(0deg); }
+            to { transform: translateY(100vh) rotate(360deg); }
+        }
+
+        #participants {
+            margin: 20px 0;
+        }
+
+        .participant-item {
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, #1a1a1a 0%, #000000 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .popup-content {
+            background: linear-gradient(145deg, #ffffff, #f0f0f0);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 500px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(255, 68, 68, 0.3);
+        }
+
+        .christmas-scene {
+            height: 300px;
+            position: relative;
+            perspective: 1000px;
+        }
+
+        .gift-wrapper {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            transform-style: preserve-3d;
+            animation: giftFloat 3s ease-in-out infinite;
+        }
+
+        .gift {
+            width: 150px;
+            height: 150px;
+            position: relative;
+            transform-style: preserve-3d;
+            animation: giftRotate 20s linear infinite;
+        }
+
+        .gift-top {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #ff4444;
+            transform-origin: bottom;
+            transform: rotateX(0deg) translateZ(75px);
+            animation: lidOpen 4s ease-in-out infinite;
+        }
+
+        .gift-bottom {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(45deg, #ff4444, #ff6b6b);
+            transform: translateZ(-75px);
+        }
+
+        .ribbon-top {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: #ff8888;
+            border-radius: 50%;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .ribbon-right, .ribbon-left {
+            position: absolute;
+            width: 30px;
+            height: 100%;
+            background: #ff8888;
+            top: 0;
+        }
+
+        .ribbon-right { right: 20px; }
+        .ribbon-left { left: 20px; }
+
+        .santa {
+            position: absolute;
+            font-size: 40px;
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: santaBounce 4s ease-in-out infinite;
+        }
+
+        .snow {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .welcome-title {
+            color: #ff4444;
+            font-size: 2.5em;
+            margin: 20px 0;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .welcome-text {
+            font-size: 1.2em;
+            color: #2c3e50;
+            margin: 15px 0;
+        }
+
+        .icon-trail {
+            margin: 20px 0;
+            font-size: 2em;
+        }
+
+        .icon-trail span {
+            display: inline-block;
+            margin: 0 10px;
+            animation: iconBounce 2s infinite;
+        }
+
+        .magic-btn {
+            background: linear-gradient(145deg, #ff4444, #ff6b6b);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 20px auto;
+        }
+
+        .magic-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 20px rgba(255,68,68,0.4);
+        }
+
+        @keyframes giftFloat {
+            0%, 100% { transform: translate(-50%, -50%); }
+            50% { transform: translate(-50%, -60%); }
+        }
+
+        @keyframes giftRotate {
+            0% { transform: rotateY(0deg); }
+            100% { transform: rotateY(360deg); }
+        }
+
+        @keyframes lidOpen {
+            0%, 100% { transform: rotateX(0deg) translateZ(75px); }
+            40%, 60% { transform: rotateX(-60deg) translateZ(75px); }
+        }
+
+        @keyframes santaBounce {
+            0%, 100% { transform: translateX(-50%) scale(1); }
+            50% { transform: translateX(-50%) scale(1.2); }
+        }
+
+        @keyframes iconBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        .icon-trail span:nth-child(2) { animation-delay: 0.2s; }
+        .icon-trail span:nth-child(3) { animation-delay: 0.4s; }
+        .icon-trail span:nth-child(4) { animation-delay: 0.6s; }
+        .icon-trail span:nth-child(5) { animation-delay: 0.8s; }
+
+        .container {
+            display: none;
+        }
+
+        .snowfall {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1001;
+        }
+
+        .snowflake {
+            position: absolute;
+            color: white;
+            font-size: 1em;
+            animation: snowfall linear infinite;
+        }
+
+        @keyframes snowfall {
+            0% { transform: translateY(-10vh) rotate(0deg); }
+            100% { transform: translateY(100vh) rotate(360deg); }
+        }
+
+        .feedback-message {
+            margin-top: 20px;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .alert {
+            background-color: #4CAF50;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fa-check-circle {
+            font-size: 1.2em;
+        }
+
+        .btn-excel {
+            background-color: #217346 !important; /* Excel green color */
+            color: white !important;
+        }
+
+        .btn-excel:hover {
+            background-color: #1e6a3e !important;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(33, 115, 70, 0.3);
+        }
+
+        .clear-feedback {
+            margin: 20px 0;
+            animation: fadeInOut 2s ease-in-out;
+        }
+
+        .alert-success {
+            background-color: #4CAF50;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-20px); }
+            15% { opacity: 1; transform: translateY(0); }
+            85% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        .fa-check-circle {
+            font-size: 1.2em;
+        }
+    </style>
+</head>
+<body>
+    <div id="welcomePopup" class="popup-overlay">
+        <div class="popup-content">
+            <div class="christmas-scene">
+                <div class="gift-wrapper">
+                    <div class="gift">
+                        <div class="gift-top">
+                            <div class="ribbon-top"></div>
+                            <div class="ribbon-right"></div>
+                            <div class="ribbon-left"></div>
+                        </div>
+                        <div class="gift-bottom"></div>
+                    </div>
+                    <div class="santa">��</div>
+                </div>
+                <div class="snow"></div>
+            </div>
+            <h2 class="welcome-title">Secret Santa Time!</h2>
+            <p class="welcome-text">Let's spread some holiday magic!</p>
+            <div class="icon-trail">
+                <span>🎄</span>
+                <span>🎁</span>
+                <span>⛄</span>
+                <span>🦌</span>
+                <span>🔔</span>
+            </div>
+            <button class="magic-btn" onclick="startApp()">
+                Start The Magic
+                <i class="fas fa-magic"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>🎄 Secret Santa Generator 🎄</h1>
+        
+        <div class="input-group">
+            <input type="text" id="participantName" placeholder="Enter participant name" 
+                   onkeypress="if(event.key === 'Enter') addParticipant()">
+            <button class="btn btn-primary" onclick="addParticipant()">
+                <i class="fas fa-plus"></i> Add Participant
+            </button>
+        </div>
+
+        <div id="participantsList">
+            <h3>Participants</h3>
+            <div id="participants"></div>
+        </div>
+
+        <button class="btn btn-primary" onclick="generatePairs()">
+            <i class="fas fa-magic"></i> Generate Secret Santa Pairs
+        </button>
+
+        <div id="results"></div>
+    </div>
+
+    <script>
+        let participants = [];
+
+        function addParticipant() {
+            const input = document.getElementById('participantName');
+            const name = input.value.trim();
+            
+            if (name && !participants.includes(name)) {
+                participants.push(name);
+                updateParticipantsList();
+                input.value = '';
+            }
+        }
+
+        function updateParticipantsList() {
+            const list = document.getElementById('participants');
+            list.innerHTML = participants
+                .map(name => `<div class="participant-item">${name}</div>`)
+                .join('');
+        }
+
+        function generatePairs() {
+            if (participants.length < 2) {
+                alert('Please add at least 2 participants!');
+                return;
+            }
+
+            const shuffled = shuffle([...participants]);
+            displayResults(shuffled);
+            createConfetti();
+        }
+
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function displayResults(shuffled) {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h3>🎄 Secret Santa Pairs 🎄</h3>';
+            
+            // Hide participants section
+            const participantsList = document.getElementById('participantsList');
+            participantsList.style.display = 'none';
+            participantsList.classList.add('hidden');
+
+            // Disable input
+            document.getElementById('participantName').disabled = true;
+
+            // Generate pairs
+            shuffled.forEach((giver, index) => {
+                const receiver = shuffled[(index + 1) % shuffled.length];
+                const pairDiv = document.createElement('div');
+                pairDiv.className = 'pair';
+                pairDiv.style.animationDelay = `${index * 0.2}s`;
+                
+                pairDiv.innerHTML = `
+                    <div class="pair-content">
+                        <div class="giver-section">
+                            <div class="name-label">Giving Gift</div>
+                            <div class="name">${giver}</div>
+                            <div class="gift-icon">🎁</div>
+                        </div>
+                        
+                        <div class="arrow-section">
+                            <i class="fas fa-long-arrow-alt-right"></i>
+                        </div>
+                        
+                        <div class="receiver-section">
+                            <div class="name-label">Receiving Gift</div>
+                            <div class="name">${receiver}</div>
+                            <div class="gift-icon">🎄</div>
+                        </div>
+                    </div>
+                `;
+                
+                results.appendChild(pairDiv);
+            });
+
+            // Add action buttons
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'results-actions';
+            actionsDiv.innerHTML = `
+                <button class="btn btn-primary" onclick="clearPairs()">
+                    <i class="fas fa-trash"></i> Clear Pairs
+                </button>
+                <button class="btn btn-excel" onclick="downloadPairsAsExcel()">
+                    <i class="fas fa-file-excel"></i> Download Excel
+                </button>
+            `;
+            results.appendChild(actionsDiv);
+        }
+
+        function createConfetti() {
+            const colors = ['#ff4444', '#4CAF50', '#FFC107', '#2196F3'];
+            for (let i = 0; i < 100; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = Math.random() * 100 + 'vw';
+                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
+                confetti.style.animation = `confettiFall ${Math.random() * 2 + 1}s linear forwards`;
+                document.body.appendChild(confetti);
+                setTimeout(() => confetti.remove(), 3000);
+            }
+        }
+
+        function clearPairs() {
+            // Clear everything in results section
+            const results = document.getElementById('results');
+            results.innerHTML = '';
+
+            // Clear participants section completely, including the label
+            const participantsList = document.getElementById('participantsList');
+            participantsList.innerHTML = '<h3>Participants</h3>';
+
+            // Clear participants array
+            participants = [];
+
+            // Clear and enable input field
+            const input = document.getElementById('participantName');
+            input.value = '';
+            input.disabled = false;
+
+            // Show and reset participants section
+            participantsList.style.display = 'block';
+            participantsList.classList.remove('hidden');
+
+            // Reset generate button
+            const generateBtn = document.querySelector('button[onclick="generatePairs()"]');
+            if (generateBtn) {
+                generateBtn.disabled = false;
+            }
+
+            // Add temporary feedback
+            const feedback = document.createElement('div');
+            feedback.className = 'clear-feedback';
+            feedback.innerHTML = `
+                <div class="alert-success">
+                    <i class="fas fa-check-circle"></i>
+                    All pairs and participants have been cleared
+                </div>
+            `;
+            results.appendChild(feedback);
+
+            // Remove feedback after 2 seconds
+            setTimeout(() => {
+                if (feedback && feedback.parentNode === results) {
+                    feedback.remove();
+                }
+            }, 2000);
+        }
+
+        function downloadPairsAsExcel() {
+            // Create array for Excel data
+            let data = [];
+            
+            // Add header row
+            data.push(['Secret Santa Pairs']);
+            data.push([]); // Empty row
+            data.push(['Giver', 'Receiver']);
+            
+            // Get all pairs and add to data
+            const pairs = document.querySelectorAll('.pair');
+            pairs.forEach(pair => {
+                const giver = pair.querySelector('.giver-section .name').textContent;
+                const receiver = pair.querySelector('.receiver-section .name').textContent;
+                data.push([giver, receiver]);
+            });
+
+            // Create workbook and worksheet
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+
+            // Style the worksheet
+            ws['!cols'] = [
+                { wch: 20 }, // Width of first column
+                { wch: 20 }  // Width of second column
+            ];
+
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, "Secret Santa");
+
+            // Save file
+            const filename = "Secret_Santa_Pairs.xls";
+            XLSX.writeFile(wb, filename);
+        }
+
+        // Create snowfall effect for the popup
+        function createSnowfall() {
+            const snowfall = document.createElement('div');
+            snowfall.className = 'snowfall';
+            document.body.appendChild(snowfall);
+
+            for (let i = 0; i < 50; i++) {
+                const snowflake = document.createElement('div');
+                snowflake.className = 'snowflake';
+                snowflake.innerHTML = '❄';
+                snowflake.style.left = Math.random() * 100 + 'vw';
+                snowflake.style.opacity = Math.random();
+                snowflake.style.animation = `snowfall ${Math.random() * 3 + 2}s linear infinite`;
+                snowflake.style.animationDelay = Math.random() * 2 + 's';
+                snowfall.appendChild(snowflake);
+            }
+        }
+
+        // Function to start the main application
+        function startApp() {
+            const popup = document.getElementById('welcomePopup');
+            const container = document.querySelector('.container');
+            
+            popup.style.animation = 'fadeOut 0.5s forwards';
+            
+            setTimeout(() => {
+                popup.style.display = 'none';
+                container.style.display = 'block';
+                container.style.animation = 'fadeIn 0.5s forwards';
+            }, 500);
+        }
+
+        // Create snowfall when page loads
+        window.onload = createSnowfall;
+    </script>
+</body>
+</html> 
